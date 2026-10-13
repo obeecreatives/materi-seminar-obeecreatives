@@ -1,0 +1,299 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "feedkreatif@gmail.com" && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidSessionState(data) {
+      return data.keys().hasAll([
+        'activeQuestion',
+        'activeSlide',
+        'activeMode',
+        'activePollId',
+        'moderationEnabled',
+        'externalEmbedUrl',
+        'externalPlatform',
+        'sessionName',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'activeQuestion',
+        'activeSlide',
+        'activeSlideStep',
+        'stepByStepEnabled',
+        'transitionStyle',
+        'activeSlideDrawer',
+        'allowParticipantSlideAccess',
+        'activeMode',
+        'activePollId',
+        'moderationEnabled',
+        'externalEmbedUrl',
+        'externalPlatform',
+        'sessionName',
+        'updatedAt'
+      ]) &&
+      data.activeQuestion is int && data.activeQuestion >= 0 && data.activeQuestion <= 30 &&
+      data.activeSlide is int && data.activeSlide >= 0 && data.activeSlide <= 50 &&
+      (!('activeSlideStep' in data) || (data.activeSlideStep is int && data.activeSlideStep >= 0 && data.activeSlideStep <= 30)) &&
+      (!('stepByStepEnabled' in data) || data.stepByStepEnabled is bool) &&
+      (!('transitionStyle' in data) || (data.transitionStyle is string && data.transitionStyle in ['slide', 'zoom', 'fade'])) &&
+      (!('activeSlideDrawer' in data) || (data.activeSlideDrawer is string && data.activeSlideDrawer in ['none', 'answers', 'poll', 'qna', 'qr'])) &&
+      (!('allowParticipantSlideAccess' in data) || data.allowParticipantSlideAccess is bool) &&
+      data.activeMode is string && data.activeMode in ['worksheet', 'poll', 'qna', 'external'] &&
+      data.activePollId is string && data.activePollId.size() <= 64 &&
+      data.moderationEnabled is bool &&
+      data.externalEmbedUrl is string && data.externalEmbedUrl.size() <= 500 &&
+      data.externalPlatform is string && data.externalPlatform in ['slido', 'mentimeter', 'custom'] &&
+      data.sessionName is string && data.sessionName.size() <= 120 &&
+      data.updatedAt is int;
+    }
+
+    function isValidCustomContent(data) {
+      return data.keys().hasAll([
+        'seminarTitle',
+        'organizerName',
+        'questions',
+        'polls',
+        'slides',
+        'qnaTopics',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'seminarTitle',
+        'organizerName',
+        'questions',
+        'polls',
+        'slides',
+        'qnaTopics',
+        'brandTheme',
+        'updatedAt'
+      ]) &&
+      (!('brandTheme' in data) || data.brandTheme is map) &&
+      data.seminarTitle is string && data.seminarTitle.size() >= 1 && data.seminarTitle.size() <= 120 &&
+      data.organizerName is string && data.organizerName.size() >= 1 && data.organizerName.size() <= 100 &&
+      data.questions is list && data.questions.size() >= 1 && data.questions.size() <= 25 &&
+      data.polls is list && data.polls.size() >= 1 && data.polls.size() <= 15 &&
+      data.slides is list && data.slides.size() >= 1 && data.slides.size() <= 40 &&
+      data.qnaTopics is list && data.qnaTopics.size() >= 1 && data.qnaTopics.size() <= 15 &&
+      data.qnaTopics[0] is string &&
+      data.updatedAt is int;
+    }
+
+    function isValidAnswer(data) {
+      return data.keys().hasAll([
+        'q',
+        'text',
+        'subText',
+        'businessName',
+        'participantId',
+        'status',
+        'star',
+        'likes',
+        'mentorNote',
+        'ts'
+      ]) &&
+      data.keys().hasOnly([
+        'q',
+        'text',
+        'subText',
+        'businessName',
+        'participantId',
+        'status',
+        'star',
+        'spotlightSize',
+        'likes',
+        'mentorNote',
+        'ts'
+      ]) &&
+      data.q is int && data.q >= 0 && data.q <= 30 &&
+      data.text is string && data.text.size() >= 1 && data.text.size() <= 250 &&
+      data.subText is string && data.subText.size() <= 200 &&
+      data.businessName is string && data.businessName.size() <= 60 &&
+      data.participantId is string && data.participantId.size() >= 1 && data.participantId.size() <= 64 && data.participantId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.status is string && data.status in ['pending', 'approved', 'hidden'] &&
+      data.star is bool &&
+      (!('spotlightSize' in data) || (data.spotlightSize is string && data.spotlightSize in ['besar', 'kecil'])) &&
+      data.likes is int && data.likes >= 0 && data.likes <= 100000 &&
+      data.mentorNote is string && data.mentorNote.size() <= 200 &&
+      data.ts is int;
+    }
+
+    function isValidQnaItem(data) {
+      return data.keys().hasAll([
+        'text',
+        'authorName',
+        'isAnonymous',
+        'topicTag',
+        'upvotes',
+        'status',
+        'star',
+        'participantId',
+        'ts'
+      ]) &&
+      data.keys().hasOnly([
+        'text',
+        'authorName',
+        'isAnonymous',
+        'topicTag',
+        'upvotes',
+        'status',
+        'star',
+        'participantId',
+        'ts'
+      ]) &&
+      data.text is string && data.text.size() >= 1 && data.text.size() <= 250 &&
+      data.authorName is string && data.authorName.size() <= 60 &&
+      data.isAnonymous is bool &&
+      data.topicTag is string && data.topicTag.size() <= 40 &&
+      data.upvotes is int && data.upvotes >= 0 && data.upvotes <= 100000 &&
+      data.status is string && data.status in ['pending', 'approved', 'hidden', 'answered'] &&
+      data.star is bool &&
+      data.participantId is string && data.participantId.size() >= 1 && data.participantId.size() <= 64 && data.participantId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ts is int;
+    }
+
+    function isValidPollVote(data) {
+      return data.keys().hasAll([
+        'pollId',
+        'optionId',
+        'customWord',
+        'businessName',
+        'participantId',
+        'ts'
+      ]) &&
+      data.keys().hasOnly([
+        'pollId',
+        'optionId',
+        'customWord',
+        'businessName',
+        'participantId',
+        'ts'
+      ]) &&
+      data.pollId is string && data.pollId.size() >= 1 && data.pollId.size() <= 64 && data.pollId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.optionId is string && data.optionId.size() >= 1 && data.optionId.size() <= 64 &&
+      data.customWord is string && data.customWord.size() <= 40 &&
+      data.businessName is string && data.businessName.size() <= 60 &&
+      data.participantId is string && data.participantId.size() >= 1 && data.participantId.size() <= 64 && data.participantId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ts is int;
+    }
+
+    // Connection test path
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+    }
+
+    // Session state
+    match /state/{sessionId} {
+      allow get: if isValidId(sessionId);
+      allow list: if resource.data.updatedAt is int || true;
+      allow create: if isValidId(sessionId) && isValidSessionState(incoming());
+      allow update: if isValidId(sessionId) && isValidSessionState(incoming()) && (
+        isAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'activeQuestion',
+          'activeSlide',
+          'activeSlideStep',
+          'stepByStepEnabled',
+          'transitionStyle',
+          'activeSlideDrawer',
+          'allowParticipantSlideAccess',
+          'activeMode',
+          'activePollId',
+          'moderationEnabled',
+          'externalEmbedUrl',
+          'externalPlatform',
+          'sessionName',
+          'updatedAt'
+        ])
+      );
+    }
+
+    // Custom seminar content
+    match /custom_content/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if resource.data.updatedAt is int || true;
+      allow create: if isValidId(docId) && isValidCustomContent(incoming());
+      allow update: if isValidId(docId) && isValidCustomContent(incoming()) && (
+        isAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'seminarTitle',
+          'organizerName',
+          'questions',
+          'polls',
+          'slides',
+          'qnaTopics',
+          'brandTheme',
+          'updatedAt'
+        ])
+      );
+    }
+
+    // Worksheet Answers: allow real-time collection query for projector & participants
+    match /answers/{answerId} {
+      allow get: if isValidId(answerId);
+      allow list: if resource.data.ts is int || true;
+      allow create: if isValidId(answerId) && isValidAnswer(incoming());
+      allow update: if isValidId(answerId) && isValidAnswer(incoming()) && (
+        isAdmin() ||
+        (incoming().q == existing().q &&
+         incoming().participantId == existing().participantId &&
+         incoming().ts == existing().ts &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'star', 'likes', 'text', 'subText', 'businessName', 'mentorNote']))
+      );
+      allow delete: if isValidId(answerId);
+    }
+
+    // Live Q&A
+    match /qna/{questionId} {
+      allow get: if isValidId(questionId);
+      allow list: if resource.data.ts is int || true;
+      allow create: if isValidId(questionId) && isValidQnaItem(incoming());
+      allow update: if isValidId(questionId) && isValidQnaItem(incoming()) && (
+        isAdmin() ||
+        (incoming().participantId == existing().participantId &&
+         incoming().ts == existing().ts &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'status', 'star', 'text', 'authorName', 'topicTag']))
+      );
+      allow delete: if isValidId(questionId);
+    }
+
+    // Live Poll & Word Cloud Votes
+    match /poll_votes/{voteId} {
+      allow get: if isValidId(voteId);
+      allow list: if resource.data.ts is int || true;
+      allow create: if isValidId(voteId) && isValidPollVote(incoming());
+      allow update: if isValidId(voteId) && isValidPollVote(incoming()) && (
+        isAdmin() ||
+        (incoming().participantId == existing().participantId &&
+         incoming().pollId == existing().pollId &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['optionId', 'customWord', 'businessName', 'ts']))
+      );
+      allow delete: if isValidId(voteId);
+    }
+  }
+}

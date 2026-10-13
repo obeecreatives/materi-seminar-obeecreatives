@@ -1,0 +1,6 @@
+{
+  "name": "PartnerUp Live — Platform Seminar Interaktif UMKM",
+  "description": "Platform tanya-jawab real-time, lembar kerja value proposition 7 tahap, polling interaktif, dan dasbor moderasi untuk Seminar UMKM PartnerUp oleh Obeecreatives.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
