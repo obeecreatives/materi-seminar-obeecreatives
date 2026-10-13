@@ -47,7 +47,11 @@ import {
   ThumbsUp,
   Printer,
   Share2,
+  Download,
+  Copy,
+  Check,
 } from 'lucide-react';
+import { downloadQrCode } from '../utils/qrDownload';
 
 interface SlideStepInfo {
   stepNumber: number;
@@ -141,6 +145,32 @@ export const SlideDeckView: React.FC<SlideDeckViewProps> = ({
   const prevSlideRef = useRef<number>(activeSlideIndex);
 
   const remoteUrl = `${window.location.origin}${window.location.pathname}?view=remote`;
+  const [isCopiedJoinUrl, setIsCopiedJoinUrl] = useState(false);
+  const [isDownloadingJoinQr, setIsDownloadingJoinQr] = useState(false);
+
+  const handleDownloadJoinQr = async (mode: 'card' | 'pure' = 'card') => {
+    setIsDownloadingJoinQr(true);
+    try {
+      const el = document.getElementById('slide-drawer-qr-svg');
+      await downloadQrCode(el, {
+        url: joinUrl,
+        seminarTitle,
+        organizerName,
+        mode,
+      });
+    } catch (err) {
+      console.error('Download QR error:', err);
+    } finally {
+      setIsDownloadingJoinQr(false);
+    }
+  };
+
+  const handleCopyJoinUrl = () => {
+    navigator.clipboard.writeText(joinUrl).then(() => {
+      setIsCopiedJoinUrl(true);
+      setTimeout(() => setIsCopiedJoinUrl(false), 2000);
+    });
+  };
 
   // Presenter Stopwatch Timer State
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -1371,11 +1401,78 @@ export const SlideDeckView: React.FC<SlideDeckViewProps> = ({
             </div>
 
             {activeSlideDrawer === 'qr' && (
-              <div className="text-center py-6 space-y-4">
-                <div className="bg-white p-6 rounded-2xl border-2 border-[#1F3A5F]/15 inline-block mx-auto">
-                  <QRCodeSVG value={joinUrl} size={260} fgColor="#1F3A5F" />
+              <div className="text-center py-6 space-y-5 max-w-lg mx-auto">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#F28C28]">
+                    {organizerName.toUpperCase()}
+                  </span>
+                  <h3 className="font-display text-2xl sm:text-3xl font-extrabold text-[#1F3A5F] mt-1">
+                    Scan HP untuk Menjawab
+                  </h3>
+                  <p className="text-xs text-[#1F3A5F]/75 mt-1">
+                    Peserta langsung masuk ke lembar kerja interaktif tanpa perlu instal aplikasi.
+                  </p>
                 </div>
-                <p className="font-mono text-base font-bold text-[#1F3A5F]">{joinUrl}</p>
+
+                <div className="bg-white p-6 rounded-2xl border-2 border-[#1F3A5F]/15 inline-block mx-auto shadow-sm">
+                  <QRCodeSVG id="slide-drawer-qr-svg" value={joinUrl} size={240} fgColor="#1F3A5F" />
+                </div>
+
+                <div className="bg-white rounded-xl p-3 border border-[#1F3A5F]/15">
+                  <p className="text-xs text-[#1F3A5F]/60 mb-1">Atau buka tautan ini di browser HP:</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-mono text-xs sm:text-sm font-bold text-[#1F3A5F] break-all select-all text-left flex-1">
+                      {joinUrl}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCopyJoinUrl}
+                      className="px-3 py-1.5 rounded-lg bg-[#1F3A5F]/10 hover:bg-[#1F3A5F]/20 text-[#1F3A5F] text-xs font-bold shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Salin tautan ke clipboard"
+                    >
+                      {isCopiedJoinUrl ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700 font-bold">Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-[#1F3A5F]" />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tombol Opsi Unduh QR Code */}
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadJoinQr('card')}
+                      disabled={isDownloadingJoinQr}
+                      className="py-3 px-4 rounded-xl bg-[#F28C28] hover:bg-[#D97718] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs active:scale-98"
+                      title="Unduh Kartu Flyer siap dibagikan ke peserta"
+                    >
+                      <Download className="w-4 h-4 text-white" />
+                      <span>{isDownloadingJoinQr ? 'Mengunduh...' : 'Unduh Kartu Siap Share'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadJoinQr('pure')}
+                      disabled={isDownloadingJoinQr}
+                      className="py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border-2 border-[#1F3A5F]/20 text-[#1F3A5F] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-98"
+                      title="Unduh QR Code resolusi tinggi murni"
+                    >
+                      <QrCode className="w-4 h-4 text-[#1F3A5F]" />
+                      <span>Unduh QR Polos (PNG)</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#1F3A5F]/65 font-medium">
+                    Format PNG resolusi tinggi siap dibagikan ke grup WhatsApp atau materi presentasi.
+                  </p>
+                </div>
               </div>
             )}
 

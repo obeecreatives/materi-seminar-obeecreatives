@@ -20,7 +20,10 @@ import {
   Minimize2,
   Sparkles,
   Store,
+  Copy,
+  Check,
 } from 'lucide-react';
+import { downloadQrCode } from '../utils/qrDownload';
 
 interface ProjectorViewProps {
   questions: WorksheetQuestion[];
@@ -65,6 +68,34 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
 }) => {
   const [showQrModal, setShowQrModal] = useState(false);
   const [isFullscreenStage, setIsFullscreenStage] = useState(false);
+  const [isCopiedLink, setIsCopiedLink] = useState(false);
+  const [isDownloadingQr, setIsDownloadingQr] = useState(false);
+
+  const handleDownloadQr = async (mode: 'card' | 'pure' = 'card') => {
+    setIsDownloadingQr(true);
+    try {
+      const el =
+        document.getElementById('projector-modal-qr-svg') ||
+        document.getElementById('projector-compact-qr-svg');
+      await downloadQrCode(el, {
+        url: joinUrl,
+        seminarTitle,
+        organizerName,
+        mode,
+      });
+    } catch (err) {
+      console.error('Download QR error:', err);
+    } finally {
+      setIsDownloadingQr(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(joinUrl).then(() => {
+      setIsCopiedLink(true);
+      setTimeout(() => setIsCopiedLink(false), 2000);
+    });
+  };
 
   const totalQuestions = questions.length;
   const activeQIndex = Math.min(sessionState.activeQuestion, Math.max(0, totalQuestions - 1));
@@ -278,14 +309,40 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
             {/* Compact Join QR Card on Projector Right Side */}
             <div
               onClick={() => setShowQrModal(true)}
-              className="bg-[#FFF7EC] border border-[#1F3A5F]/20 rounded-2xl p-4 flex flex-col items-center justify-center text-center shrink-0 cursor-pointer hover:border-[#F28C28] transition-colors"
-              title="Klik untuk memperbesar QR Code"
+              className="group bg-[#FFF7EC] border border-[#1F3A5F]/20 hover:border-[#F28C28] rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shrink-0 cursor-pointer transition-all shadow-xs"
+              title="Klik untuk memperbesar QR Code atau unduh gambar"
             >
-              <div className="bg-white p-2.5 rounded-xl border border-[#1F3A5F]/10 mb-2">
-                <QRCodeSVG value={joinUrl} size={112} fgColor="#1F3A5F" />
+              <div className="bg-white p-2 rounded-xl border border-[#1F3A5F]/10 mb-1.5 shadow-2xs group-hover:scale-102 transition-transform">
+                <QRCodeSVG id="projector-compact-qr-svg" value={joinUrl} size={108} fgColor="#1F3A5F" />
               </div>
               <p className="text-xs font-bold text-[#1F3A5F]">Scan HP untuk Menjawab</p>
-              <p className="text-[11px] text-[#F28C28] font-semibold mt-0.5">Klik perbesar QR</p>
+
+              <div className="flex items-center gap-1.5 mt-2 w-full">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownloadQr('card');
+                  }}
+                  disabled={isDownloadingQr}
+                  className="flex-1 py-1 px-2 rounded-lg bg-[#1F3A5F] hover:bg-[#162944] text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-2xs active:scale-98"
+                  title="Unduh Kartu QR (PNG) untuk dibagikan ke peserta"
+                >
+                  <Download className="w-3 h-3 text-[#F28C28]" />
+                  <span>{isDownloadingQr ? '...' : 'Unduh QR'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowQrModal(true);
+                  }}
+                  className="p-1 rounded-lg bg-white border border-[#1F3A5F]/20 hover:border-[#F28C28] text-[#1F3A5F] text-[11px] font-bold flex items-center justify-center transition-colors cursor-pointer"
+                  title="Perbesar Layar Penuh"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -926,19 +983,68 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({
             </div>
 
             <div className="bg-white p-6 rounded-2xl border-2 border-[#1F3A5F]/15 inline-block mx-auto shadow-sm">
-              <QRCodeSVG value={joinUrl} size={260} fgColor="#1F3A5F" />
+              <QRCodeSVG id="projector-modal-qr-svg" value={joinUrl} size={260} fgColor="#1F3A5F" />
             </div>
 
             <div className="bg-white rounded-xl p-3 border border-[#1F3A5F]/15">
               <p className="text-xs text-[#1F3A5F]/60 mb-1">Atau buka tautan ini di browser HP:</p>
-              <p className="font-mono text-sm font-bold text-[#1F3A5F] break-all select-all">
-                {joinUrl}
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-xs sm:text-sm font-bold text-[#1F3A5F] break-all select-all text-left flex-1">
+                  {joinUrl}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="px-3 py-1.5 rounded-lg bg-[#1F3A5F]/10 hover:bg-[#1F3A5F]/20 text-[#1F3A5F] text-xs font-bold shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Salin tautan ke clipboard"
+                >
+                  {isCopiedLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700 font-bold">Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-[#1F3A5F]" />
+                      <span>Salin</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Tombol Opsi Unduh QR Code */}
+            <div className="space-y-2 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadQr('card')}
+                  disabled={isDownloadingQr}
+                  className="py-3 px-4 rounded-xl bg-[#F28C28] hover:bg-[#D97718] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs active:scale-98"
+                  title="Unduh Kartu Flyer dengan judul dan link siap dibagikan ke peserta"
+                >
+                  <Download className="w-4 h-4 text-white" />
+                  <span>{isDownloadingQr ? 'Mengunduh...' : 'Unduh Kartu Siap Share'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadQr('pure')}
+                  disabled={isDownloadingQr}
+                  className="py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border-2 border-[#1F3A5F]/20 text-[#1F3A5F] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-98"
+                  title="Unduh QR code gambar resolusi tinggi tanpa teks frame"
+                >
+                  <QrCode className="w-4 h-4 text-[#1F3A5F]" />
+                  <span>Unduh QR Polos (PNG)</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-[#1F3A5F]/65 font-medium">
+                Format PNG resolusi tinggi siap dikirim ke grup WhatsApp, Telegram, atau dimasukkan ke slide.
               </p>
             </div>
 
             <button
               onClick={() => setShowQrModal(false)}
-              className="w-full py-3.5 rounded-xl bg-[#1F3A5F] text-white font-display font-bold text-base hover:bg-[#162944] transition-colors cursor-pointer"
+              className="w-full py-3 rounded-xl bg-[#1F3A5F] text-white font-display font-bold text-sm hover:bg-[#162944] transition-colors cursor-pointer"
             >
               Tutup Layar QR
             </button>
